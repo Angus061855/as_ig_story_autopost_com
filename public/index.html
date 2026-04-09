@@ -61,9 +61,19 @@
     .preview-area {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 14px;
       margin-top: 12px;
     }
+
+    /* 外層包住圖片＋檔名 */
+    .preview-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      width: 100px;
+    }
+
     .preview-item {
       position: relative;
       width: 100px;
@@ -88,7 +98,6 @@
       border-radius: 8px;
       transition: transform 0.25s ease, box-shadow 0.25s ease;
     }
-    /* hover 放大，用 z-index 讓它蓋在其他圖片上 */
     .preview-item:hover {
       z-index: 10;
     }
@@ -129,6 +138,18 @@
       cursor: pointer;
       z-index: 11;
     }
+
+    /* 檔名文字 */
+    .filename {
+      font-size: 11px;
+      color: #888;
+      text-align: center;
+      width: 100px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .hint { font-size: 12px; color: #444; margin-top: 6px; }
     button {
       width: 100%;
@@ -197,7 +218,7 @@
     document.getElementById('images').addEventListener('change', async function () {
       for (const file of Array.from(this.files)) {
         const previewUrl = await readAsDataURL(file);
-        items.push({ file, previewUrl });
+        items.push({ file, previewUrl, name: file.name });
       }
       renderPreview();
       this.value = '';
@@ -211,7 +232,7 @@
       uploadArea.style.borderColor = '#333';
       for (const file of Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))) {
         const previewUrl = await readAsDataURL(file);
-        items.push({ file, previewUrl });
+        items.push({ file, previewUrl, name: file.name });
       }
       renderPreview();
     });
@@ -221,6 +242,10 @@
       hint.style.display = items.length === 0 ? 'none' : 'block';
 
       items.forEach((item, index) => {
+        // 外層 wrapper（圖片 + 檔名）
+        const wrapper = document.createElement('div');
+        wrapper.className = 'preview-wrapper';
+
         const el = document.createElement('div');
         el.className = 'preview-item';
         el.draggable = true;
@@ -232,6 +257,13 @@
           <div class="remove">✕</div>
         `;
 
+        // 檔名
+        const filenameEl = document.createElement('div');
+        filenameEl.className = 'filename';
+        filenameEl.textContent = item.name;
+        filenameEl.title = item.name; // hover 顯示完整檔名
+
+        // 拖曳事件
         el.addEventListener('dragstart', () => {
           dragSrcIndex = index;
           setTimeout(() => el.classList.add('dragging'), 0);
@@ -255,7 +287,9 @@
           renderPreview();
         });
 
-        previewArea.appendChild(el);
+        wrapper.appendChild(el);
+        wrapper.appendChild(filenameEl);
+        previewArea.appendChild(wrapper);
       });
     }
 
