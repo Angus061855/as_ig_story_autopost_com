@@ -82,6 +82,7 @@ def create_carousel_item(image_url):
         "access_token": IG_ACCESS_TOKEN
     })
     data = res.json()
+    print(f"IG 回應：{data}")  # 加這行
     item_id = data.get("id")
     print(f"輪播項目建立：{item_id}")
     return item_id
