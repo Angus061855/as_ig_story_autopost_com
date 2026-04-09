@@ -31,7 +31,6 @@ export default async function handler(req, res) {
     try {
       const caption = Array.isArray(fields.caption) ? fields.caption[0] : fields.caption || '';
 
-      // 確保圖片是陣列，並且保持原本的順序
       let imageFiles = files.images;
       if (!imageFiles) return res.status(400).json({ error: '請選擇圖片' });
       if (!Array.isArray(imageFiles)) imageFiles = [imageFiles];
@@ -42,15 +41,12 @@ export default async function handler(req, res) {
         const file = imageFiles[i];
         const result = await cloudinary.uploader.upload(file.filepath, {
           folder: 'ig-posts',
-          public_id: `post_${Date.now()}_${i + 1}`, // 用編號確保順序
+          public_id: `post_${Date.now()}_${i + 1}`,
         });
         uploadedUrls.push(result.secure_url);
       }
 
-      // 所有圖片網址用逗號合併，順序即輪播順序
-      const imagesString = uploadedUrls.join(',');
-
-      // 寫入 Notion，對應欄位名稱
+      // 寫入 Notion
       await notion.pages.create({
         parent: { database_id: process.env.NOTION_DATABASE_ID },
         properties: {
@@ -58,17 +54,23 @@ export default async function handler(req, res) {
             title: [{ text: { content: caption } }],
           },
           '圖片': {
-            rich_text: [{ text: { content: imagesString } }],
+            // Files 類型：每張圖片一個 external 物件
+            files: uploadedUrls.map((url, i) => ({
+              name: `image_${i + 1}`,
+              type: 'external',
+              external: { url },
+            })),
           },
           '狀態': {
-            select: { name: '待發' },
+            // Status 類型（不是 select）
+            status: { name: '待發' },
           },
         },
       });
 
       return res.status(200).json({
         success: true,
-        message: `上傳成功！共 ${uploadedUrls.length} 張，順序已保留`,
+        message: `上傳成功！共 ${uploadedUrls.length} 張`,
         images: uploadedUrls,
       });
 
