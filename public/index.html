@@ -53,14 +53,11 @@
       min-height: 120px;
     }
     textarea:focus { border-color: #6366f1; }
-
-    /* 拖曳排序預覽區 */
     .preview-area {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
       margin-top: 12px;
-      min-height: 0;
     }
     .preview-item {
       position: relative;
@@ -72,27 +69,23 @@
       cursor: grab;
       transition: transform 0.15s, box-shadow 0.15s;
       user-select: none;
+      flex-shrink: 0;
     }
     .preview-item:active { cursor: grabbing; }
-    .preview-item.dragging {
-      opacity: 0.4;
-      transform: scale(0.95);
-    }
-    .preview-item.drag-over {
-      border-color: #6366f1;
-      box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
-    }
+    .preview-item.dragging { opacity: 0.3; transform: scale(0.95); }
+    .preview-item.drag-over { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.25); }
     .preview-item img {
       width: 100%;
       height: 100%;
       object-fit: cover;
       pointer-events: none;
+      display: block;
     }
     .preview-item .num {
       position: absolute;
       top: 4px;
       left: 4px;
-      background: rgba(0,0,0,0.55);
+      background: rgba(0,0,0,0.6);
       color: white;
       font-size: 11px;
       font-weight: 700;
@@ -107,9 +100,9 @@
       position: absolute;
       top: 4px;
       right: 4px;
-      background: rgba(0,0,0,0.55);
+      background: rgba(0,0,0,0.6);
       color: white;
-      font-size: 13px;
+      font-size: 12px;
       width: 20px;
       height: 20px;
       border-radius: 50%;
@@ -117,12 +110,9 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
+      z-index: 2;
     }
-    .hint {
-      font-size: 12px;
-      color: #aaa;
-      margin-top: 6px;
-    }
+    .hint { font-size: 12px; color: #aaa; margin-top: 6px; }
     button {
       width: 100%;
       padding: 14px;
@@ -153,9 +143,7 @@
 <body>
   <div class="container">
     <h1>📸 IG 發文上傳</h1>
-
     <form id="uploadForm">
-
       <div class="field">
         <label>選擇圖片（可多選）</label>
         <div class="upload-area" id="uploadArea" onclick="document.getElementById('images').click()">
@@ -165,102 +153,115 @@
         <div class="preview-area" id="previewArea"></div>
         <p class="hint" id="hint" style="display:none">拖曳圖片可調整輪播順序，左上角數字是發布順序</p>
       </div>
-
       <div class="field">
         <label>文案</label>
-        <textarea name="caption" id="caption" placeholder="輸入 IG 文案..."></textarea>
+        <textarea id="caption" placeholder="輸入 IG 文案..."></textarea>
       </div>
-
       <button type="submit" id="submitBtn">🚀 上傳並儲存到 Notion</button>
     </form>
-
     <div class="result" id="result"></div>
   </div>
 
   <script>
-    let fileList = []; // 維護順序的陣列
+    // 每個項目同時存 file 和 previewUrl，避免非同步亂序
+    let items = []; // [{ file, previewUrl }]
     let dragSrcIndex = null;
 
     const previewArea = document.getElementById('previewArea');
     const hint = document.getElementById('hint');
 
+    // 讀取檔案成 base64，回傳 Promise
+    function readAsDataURL(file) {
+      return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.readAsDataURL(file);
+      });
+    }
+
     // 選擇圖片
-    document.getElementById('images').addEventListener('change', function () {
-      Array.from(this.files).forEach(file => fileList.push(file));
+    document.getElementById('images').addEventListener('change', async function () {
+      const newFiles = Array.from(this.files);
+      for (const file of newFiles) {
+        const previewUrl = await readAsDataURL(file);
+        items.push({ file, previewUrl });
+      }
       renderPreview();
-      this.value = ''; // 清空讓同一張可以重選
+      this.value = '';
     });
 
     // 拖曳檔案進來
     const uploadArea = document.getElementById('uploadArea');
     uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.style.borderColor = '#6366f1'; });
     uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor = '#d1d5db'; });
-    uploadArea.addEventListener('drop', e => {
+    uploadArea.addEventListener('drop', async e => {
       e.preventDefault();
       uploadArea.style.borderColor = '#d1d5db';
-      Array.from(e.dataTransfer.files).forEach(file => {
-        if (file.type.startsWith('image/')) fileList.push(file);
-      });
+      const newFiles = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+      for (const file of newFiles) {
+        const previewUrl = await readAsDataURL(file);
+        items.push({ file, previewUrl });
+      }
       renderPreview();
     });
 
     function renderPreview() {
       previewArea.innerHTML = '';
-      if (fileList.length === 0) { hint.style.display = 'none'; return; }
-      hint.style.display = 'block';
+      hint.style.display = items.length === 0 ? 'none' : 'block';
 
-      fileList.forEach((file, index) => {
-        const reader = new FileReader();
-        reader.onload = e => {
-          const item = document.createElement('div');
-          item.className = 'preview-item';
-          item.draggable = true;
-          item.dataset.index = index;
+      items.forEach((item, index) => {
+        const el = document.createElement('div');
+        el.className = 'preview-item';
+        el.draggable = true;
+        el.dataset.index = index;
 
-          item.innerHTML = `
-            <img src="${e.target.result}" />
-            <div class="num">${index + 1}</div>
-            <div class="remove" data-index="${index}">✕</div>
-          `;
+        el.innerHTML = `
+          <img src="${item.previewUrl}" />
+          <div class="num">${index + 1}</div>
+          <div class="remove">✕</div>
+        `;
 
-          // 拖曳排序
-          item.addEventListener('dragstart', () => {
-            dragSrcIndex = index;
-            setTimeout(() => item.classList.add('dragging'), 0);
-          });
-          item.addEventListener('dragend', () => item.classList.remove('dragging'));
-          item.addEventListener('dragover', e => { e.preventDefault(); item.classList.add('drag-over'); });
-          item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
-          item.addEventListener('drop', e => {
-            e.preventDefault();
-            item.classList.remove('drag-over');
-            if (dragSrcIndex === null || dragSrcIndex === index) return;
-            // 交換順序
-            const moved = fileList.splice(dragSrcIndex, 1)[0];
-            fileList.splice(index, 0, moved);
-            dragSrcIndex = null;
-            renderPreview();
-          });
+        // 拖曳排序
+        el.addEventListener('dragstart', () => {
+          dragSrcIndex = index;
+          setTimeout(() => el.classList.add('dragging'), 0);
+        });
+        el.addEventListener('dragend', () => {
+          el.classList.remove('dragging');
+        });
+        el.addEventListener('dragover', e => {
+          e.preventDefault();
+          el.classList.add('drag-over');
+        });
+        el.addEventListener('dragleave', () => {
+          el.classList.remove('drag-over');
+        });
+        el.addEventListener('drop', e => {
+          e.preventDefault();
+          el.classList.remove('drag-over');
+          if (dragSrcIndex === null || dragSrcIndex === index) return;
+          // 移動到目標位置
+          const moved = items.splice(dragSrcIndex, 1)[0];
+          items.splice(index, 0, moved);
+          dragSrcIndex = null;
+          renderPreview();
+        });
 
-          // 刪除
-          item.querySelector('.remove').addEventListener('click', () => {
-            fileList.splice(index, 1);
-            renderPreview();
-          });
+        // 刪除
+        el.querySelector('.remove').addEventListener('click', (e) => {
+          e.stopPropagation();
+          items.splice(index, 1);
+          renderPreview();
+        });
 
-          previewArea.appendChild(item);
-        };
-        reader.readAsDataURL(file);
+        previewArea.appendChild(el);
       });
     }
 
     // 送出
     document.getElementById('uploadForm').addEventListener('submit', async function (e) {
       e.preventDefault();
-      if (fileList.length === 0) {
-        alert('請選擇至少一張圖片');
-        return;
-      }
+      if (items.length === 0) { alert('請選擇至少一張圖片'); return; }
 
       const btn = document.getElementById('submitBtn');
       const result = document.getElementById('result');
@@ -271,18 +272,17 @@
       const formData = new FormData();
       formData.append('caption', document.getElementById('caption').value);
       // 照目前順序加入
-      fileList.forEach(file => formData.append('images', file));
+      items.forEach(item => formData.append('images', item.file));
 
       try {
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
         const data = await res.json();
-
         if (data.success) {
           result.className = 'result success';
           result.textContent = `✅ 上傳成功！共 ${data.images.length} 張，順序已儲存到 Notion`;
-          fileList = [];
+          items = [];
           renderPreview();
-          this.reset();
+          document.getElementById('caption').value = '';
         } else {
           result.className = 'result error';
           result.textContent = '❌ 失敗：' + data.error;
