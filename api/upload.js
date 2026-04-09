@@ -1,7 +1,6 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { Client } from '@notionhq/client';
 import formidable from 'formidable';
-import fs from 'fs';
 
 export const config = {
   api: {
@@ -22,7 +21,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const form = formidable({ multiples: true });
+  const form = formidable({ multiples: true, keepExtensions: true });
 
   form.parse(req, async (err, fields, files) => {
     if (err) {
@@ -30,50 +29,46 @@ export default async function handler(req, res) {
     }
 
     try {
-      const caption = fields.caption?.[0] || fields.caption || '';
-      const hashtags = fields.hashtags?.[0] || fields.hashtags || '';
-      const scheduleDate = fields.scheduleDate?.[0] || fields.scheduleDate || '';
+      const caption = Array.isArray(fields.caption) ? fields.caption[0] : fields.caption || '';
 
-      // 上傳圖片到 Cloudinary
-      const imageFiles = Array.isArray(files.images) ? files.images : [files.images];
+      // 確保圖片是陣列，並且保持原本的順序
+      let imageFiles = files.images;
+      if (!imageFiles) return res.status(400).json({ error: '請選擇圖片' });
+      if (!Array.isArray(imageFiles)) imageFiles = [imageFiles];
+
+      // 照順序上傳到 Cloudinary
       const uploadedUrls = [];
-
-      for (const file of imageFiles) {
-        if (!file) continue;
+      for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i];
         const result = await cloudinary.uploader.upload(file.filepath, {
           folder: 'ig-posts',
+          public_id: `post_${Date.now()}_${i + 1}`, // 用編號確保順序
         });
         uploadedUrls.push(result.secure_url);
       }
 
-      // 寫入 Notion
+      // 所有圖片網址用逗號合併，順序即輪播順序
+      const imagesString = uploadedUrls.join(',');
+
+      // 寫入 Notion，對應欄位名稱
       await notion.pages.create({
         parent: { database_id: process.env.NOTION_DATABASE_ID },
         properties: {
-          '名稱': {
-            title: [{ text: { content: caption.substring(0, 50) || '新貼文' } }],
-          },
           '文案': {
-            rich_text: [{ text: { content: caption } }],
+            title: [{ text: { content: caption } }],
           },
-          'Hashtags': {
-            rich_text: [{ text: { content: hashtags } }],
-          },
-          '預計發布時間': {
-            date: scheduleDate ? { start: scheduleDate } : null,
-          },
-          '圖片網址': {
-            url: uploadedUrls[0] || null,
+          '圖片': {
+            rich_text: [{ text: { content: imagesString } }],
           },
           '狀態': {
-            select: { name: '待發布' },
+            select: { name: '待發' },
           },
         },
       });
 
       return res.status(200).json({
         success: true,
-        message: '上傳成功！',
+        message: `上傳成功！共 ${uploadedUrls.length} 張，順序已保留`,
         images: uploadedUrls,
       });
 
