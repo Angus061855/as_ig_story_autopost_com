@@ -65,16 +65,22 @@
       margin-top: 12px;
     }
 
-    /* wrapper：圖片框 + 檔名 */
     .preview-wrapper {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 5px;
       width: 100px;
+      cursor: grab;
+      position: relative;
+    }
+    .preview-wrapper:active { cursor: grabbing; }
+    .preview-wrapper.dragging { opacity: 0.3; }
+    .preview-wrapper.drag-over .preview-item {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.25);
     }
 
-    /* 圖片框：overflow hidden 讓數字/叉叉不超出 */
     .preview-item {
       position: relative;
       width: 100px;
@@ -82,15 +88,9 @@
       border-radius: 10px;
       overflow: hidden;
       border: 2px solid #2a2a2a;
-      cursor: grab;
-      user-select: none;
       flex-shrink: 0;
     }
-    .preview-item:active { cursor: grabbing; }
-    .preview-item.dragging { opacity: 0.3; transform: scale(0.95); }
-    .preview-item.drag-over { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.25); }
 
-    /* 圖片放大：只有 img 縮放，數字/叉叉不動 */
     .preview-item img {
       width: 100%;
       height: 100%;
@@ -98,14 +98,8 @@
       pointer-events: none;
       display: block;
       border-radius: 6px;
-      transition: transform 0.25s ease;
-      transform-origin: center center;
-    }
-    .preview-item:hover img {
-      transform: scale(2.5);
     }
 
-    /* 數字和叉叉固定在角落，不跟著縮放 */
     .preview-item .num {
       position: absolute;
       top: 4px;
@@ -121,8 +115,6 @@
       align-items: center;
       justify-content: center;
       z-index: 5;
-      /* 讓它不受父層 transform 影響 */
-      will-change: auto;
     }
     .preview-item .remove {
       position: absolute;
@@ -142,10 +134,9 @@
     }
     .remove:hover { background: rgba(220,50,50,0.9); }
 
-    /* 檔名 */
     .filename {
       font-size: 11px;
-      color: #888;
+      color: #aaa;
       text-align: center;
       width: 100px;
       overflow: hidden;
@@ -154,6 +145,44 @@
     }
 
     .hint { font-size: 12px; color: #444; margin-top: 6px; }
+
+    /* 放大預覽 Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .modal-overlay.show {
+      display: flex;
+    }
+    .modal-overlay img {
+      max-width: 80vw;
+      max-height: 75vh;
+      border-radius: 12px;
+      box-shadow: 0 8px 48px rgba(0,0,0,0.8);
+      object-fit: contain;
+    }
+    .modal-filename {
+      color: #ccc;
+      font-size: 14px;
+    }
+    .modal-close {
+      position: absolute;
+      top: 20px;
+      right: 24px;
+      color: white;
+      font-size: 28px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .modal-close:hover { color: #f87171; }
+
     button {
       width: 100%;
       padding: 14px;
@@ -182,6 +211,14 @@
   </style>
 </head>
 <body>
+
+  <!-- 放大預覽 Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal-close" id="modalClose">✕</div>
+    <img id="modalImg" src="" />
+    <div class="modal-filename" id="modalFilename"></div>
+  </div>
+
   <div class="container">
     <h1>📸 IG 發文上傳</h1>
     <form id="uploadForm">
@@ -192,7 +229,7 @@
         </div>
         <input type="file" id="images" accept="image/*" multiple>
         <div class="preview-area" id="previewArea"></div>
-        <p class="hint" id="hint" style="display:none">拖曳圖片可調整輪播順序，左上角數字是發布順序，滑鼠移上去可放大預覽</p>
+        <p class="hint" id="hint" style="display:none">拖曳圖片可調整順序 ・ 點圖片可放大預覽</p>
       </div>
       <div class="field">
         <label>文案</label>
@@ -209,6 +246,21 @@
 
     const previewArea = document.getElementById('previewArea');
     const hint = document.getElementById('hint');
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalImg = document.getElementById('modalImg');
+    const modalFilename = document.getElementById('modalFilename');
+
+    // 關閉 modal
+    document.getElementById('modalClose').addEventListener('click', () => modalOverlay.classList.remove('show'));
+    modalOverlay.addEventListener('click', e => {
+      if (e.target === modalOverlay) modalOverlay.classList.remove('show');
+    });
+
+    function openModal(src, name) {
+      modalImg.src = src;
+      modalFilename.textContent = name;
+      modalOverlay.classList.add('show');
+    }
 
     function readAsDataURL(file) {
       return new Promise(resolve => {
@@ -247,13 +299,12 @@
       items.forEach((item, index) => {
         const wrapper = document.createElement('div');
         wrapper.className = 'preview-wrapper';
+        wrapper.draggable = true;
+        wrapper.dataset.index = index;
 
         const el = document.createElement('div');
         el.className = 'preview-item';
-        el.draggable = true;
-        el.dataset.index = index;
 
-        // img 單獨放，數字/叉叉在 img 外層但同一個 .preview-item 內
         const img = document.createElement('img');
         img.src = item.previewUrl;
 
@@ -269,23 +320,30 @@
         el.appendChild(num);
         el.appendChild(removeBtn);
 
-        // 檔名
         const filenameEl = document.createElement('div');
         filenameEl.className = 'filename';
         filenameEl.textContent = item.name;
         filenameEl.title = item.name;
 
-        // 拖曳
-        el.addEventListener('dragstart', () => {
-          dragSrcIndex = index;
-          setTimeout(() => el.classList.add('dragging'), 0);
+        // 點圖片放大
+        img.style.cursor = 'zoom-in';
+        img.style.pointerEvents = 'auto';
+        img.addEventListener('click', e => {
+          e.stopPropagation();
+          openModal(item.previewUrl, item.name);
         });
-        el.addEventListener('dragend', () => el.classList.remove('dragging'));
-        el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag-over'); });
-        el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
-        el.addEventListener('drop', e => {
+
+        // 拖曳換順序
+        wrapper.addEventListener('dragstart', e => {
+          dragSrcIndex = index;
+          setTimeout(() => wrapper.classList.add('dragging'), 0);
+        });
+        wrapper.addEventListener('dragend', () => wrapper.classList.remove('dragging'));
+        wrapper.addEventListener('dragover', e => { e.preventDefault(); wrapper.classList.add('drag-over'); });
+        wrapper.addEventListener('dragleave', () => wrapper.classList.remove('drag-over'));
+        wrapper.addEventListener('drop', e => {
           e.preventDefault();
-          el.classList.remove('drag-over');
+          wrapper.classList.remove('drag-over');
           if (dragSrcIndex === null || dragSrcIndex === index) return;
           const moved = items.splice(dragSrcIndex, 1)[0];
           items.splice(index, 0, moved);
