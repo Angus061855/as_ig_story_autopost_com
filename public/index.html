@@ -2,319 +2,172 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>IG 發文上傳</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: #111;
-      color: #eee;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      min-height: 100vh;
-      padding: 40px 16px;
-    }
-    .card {
-      background: #1e1e1e;
-      border-radius: 16px;
-      padding: 32px;
-      width: 100%;
-      max-width: 560px;
-    }
-    h1 { font-size: 1.4rem; margin-bottom: 24px; }
-    label { display: block; font-size: 0.85rem; color: #aaa; margin-bottom: 8px; }
-    .upload-area {
-      border: 2px dashed #444;
-      border-radius: 12px;
-      padding: 32px;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color 0.2s;
-      color: #666;
-      font-size: 0.9rem;
-      margin-bottom: 16px;
-    }
-    .upload-area:hover { border-color: #7c6af7; color: #aaa; }
-    .upload-area.dragover { border-color: #7c6af7; background: #2a2a3a; }
-    #fileInput { display: none; }
-    .preview-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-    .preview-item {
-      position: relative;
-      aspect-ratio: 1;
-      border-radius: 8px;
-      overflow: hidden;
-      cursor: grab;
-      border: 2px solid transparent;
-      transition: border-color 0.2s;
-    }
-    .preview-item.dragging { opacity: 0.4; border-color: #7c6af7; }
-    .preview-item.drag-over { border-color: #7c6af7; }
-    .preview-item img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-    .preview-item .num {
-      position: absolute;
-      top: 4px;
-      left: 4px;
-      background: rgba(0,0,0,0.7);
-      color: #fff;
-      font-size: 0.7rem;
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
-    .preview-item .remove {
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      background: rgba(0,0,0,0.7);
-      color: #fff;
-      border: none;
-      border-radius: 50%;
-      width: 20px;
-      height: 20px;
-      cursor: pointer;
-      font-size: 0.75rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .preview-hint {
-      font-size: 0.75rem;
-      color: #555;
-      margin-bottom: 20px;
-    }
-    .caption-label { margin-top: 4px; }
-    textarea {
-      width: 100%;
-      background: #2a2a2a;
-      border: 1px solid #333;
-      border-radius: 10px;
-      color: #eee;
-      padding: 12px;
-      font-size: 0.9rem;
-      resize: vertical;
-      min-height: 120px;
-      margin-bottom: 20px;
-      font-family: inherit;
-    }
-    textarea:focus { outline: none; border-color: #7c6af7; }
-    .btn {
-      width: 100%;
-      padding: 14px;
-      border: none;
-      border-radius: 12px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.2s;
-    }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-primary { background: #7c6af7; color: #fff; }
-    .btn-primary:hover:not(:disabled) { opacity: 0.85; }
-    .status {
-      margin-top: 14px;
-      padding: 12px 16px;
-      border-radius: 10px;
-      font-size: 0.9rem;
-      display: none;
-    }
-    .status.success { background: #1a3a2a; color: #4ade80; display: block; }
-    .status.error { background: #3a1a1a; color: #f87171; display: block; }
-    .status.loading { background: #2a2a3a; color: #a78bfa; display: block; }
-    .progress-bar {
-      height: 4px;
-      background: #333;
-      border-radius: 2px;
-      margin-top: 10px;
-      overflow: hidden;
-      display: none;
-    }
-    .progress-bar.show { display: block; }
-    .progress-fill {
-      height: 100%;
-      background: #7c6af7;
-      border-radius: 2px;
-      transition: width 0.3s;
-      width: 0%;
-    }
+    body { background: #111; color: #fff; font-family: sans-serif; display: flex; justify-content: center; padding: 40px 16px; }
+    .container { width: 100%; max-width: 600px; }
+    h1 { font-size: 1.4rem; margin-bottom: 20px; }
+    .drop-zone { border: 2px dashed #555; border-radius: 12px; padding: 30px; text-align: center; color: #888; cursor: pointer; margin-bottom: 16px; }
+    .drop-zone:hover { border-color: #aaa; }
+    .preview-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+    .preview-item { position: relative; }
+    .preview-item img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; cursor: pointer; }
+    .preview-item .remove { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.6); border: none; color: #fff; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; font-size: 12px; }
+    .hint { font-size: 0.75rem; color: #666; margin-bottom: 16px; }
+    label { display: block; margin-bottom: 6px; font-size: 0.9rem; color: #ccc; }
+    textarea { width: 100%; height: 140px; background: #1e1e1e; color: #fff; border: 1px solid #444; border-radius: 8px; padding: 10px; font-size: 0.95rem; resize: vertical; }
+    .btn { width: 100%; margin-top: 16px; padding: 14px; background: #6c63ff; color: #fff; border: none; border-radius: 10px; font-size: 1rem; cursor: pointer; }
+    .btn:disabled { background: #444; cursor: not-allowed; }
+    .msg { margin-top: 12px; padding: 10px 14px; border-radius: 8px; font-size: 0.9rem; }
+    .msg.success { background: #1a3a1a; color: #6fcf6f; }
+    .msg.error { background: #3a1a1a; color: #f28b82; }
+    .progress { margin-top: 10px; font-size: 0.85rem; color: #aaa; }
   </style>
 </head>
 <body>
-<div class="card">
-  <h1>🎬 IG 發文上傳</h1>
+<div class="container">
+  <h1>🗂 IG 發文上傳</h1>
 
-  <label>選擇圖片（可多選）</label>
-  <div class="upload-area" id="uploadArea">
-    點此選擇圖片，或拖曳圖片到這裡
-    <input type="file" id="fileInput" accept="image/*" multiple />
-  </div>
+  <div class="drop-zone" id="dropZone">點此選擇圖片，或拖曳圖片到這裡</div>
+  <input type="file" id="fileInput" multiple accept="image/*" style="display:none"/>
 
   <div class="preview-grid" id="previewGrid"></div>
-  <div class="preview-hint" id="previewHint" style="display:none">拖曳圖片可調整順序，點圖片可放大預覽</div>
+  <p class="hint">拖曳圖片可調整順序，點圖片可放大預覽</p>
 
-  <label class="caption-label">文案</label>
+  <label>文案</label>
   <textarea id="caption" placeholder="輸入 IG 文案..."></textarea>
 
-  <button class="btn btn-primary" id="submitBtn">🚀 上傳並儲存到 Notion</button>
-  <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
-  <div class="status" id="status"></div>
-</div>
-
-<!-- 燈箱預覽 -->
-<div id="lightbox" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:999;justify-content:center;align-items:center;">
-  <img id="lightboxImg" style="max-width:90%;max-height:90%;border-radius:8px;" />
-  <button onclick="document.getElementById('lightbox').style.display='none'" style="position:absolute;top:20px;right:24px;background:none;border:none;color:#fff;font-size:2rem;cursor:pointer;">✕</button>
+  <button class="btn" id="uploadBtn">🚀 上傳並儲存到 Notion</button>
+  <div class="progress" id="progress"></div>
+  <div id="message"></div>
 </div>
 
 <script>
-  let items = [];
-  let dragSrcIdx = null;
+  const CLOUD_NAME = 'dy6uwswgf';
+  const UPLOAD_PRESET = 'ig_upload';
 
-  const uploadArea = document.getElementById('uploadArea');
+  let files = [];
+
+  const dropZone = document.getElementById('dropZone');
   const fileInput = document.getElementById('fileInput');
   const previewGrid = document.getElementById('previewGrid');
-  const previewHint = document.getElementById('previewHint');
-  const submitBtn = document.getElementById('submitBtn');
-  const statusEl = document.getElementById('status');
-  const progressBar = document.getElementById('progressBar');
-  const progressFill = document.getElementById('progressFill');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const progress = document.getElementById('progress');
+  const message = document.getElementById('message');
 
-  uploadArea.addEventListener('click', () => fileInput.click());
-
-  fileInput.addEventListener('change', async function () {
-    for (const file of Array.from(this.files)) {
-      const previewUrl = await readAsDataURL(file);
-      items.push({ file, previewUrl, name: file.name });
-    }
-    renderPreview();
-    this.value = '';
-  });
-
-  uploadArea.addEventListener('dragover', e => {
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = '#fff'; });
+  dropZone.addEventListener('dragleave', () => dropZone.style.borderColor = '#555');
+  dropZone.addEventListener('drop', e => {
     e.preventDefault();
-    uploadArea.classList.add('dragover');
+    dropZone.style.borderColor = '#555';
+    addFiles([...e.dataTransfer.files]);
   });
-  uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
-  uploadArea.addEventListener('drop', async e => {
-    e.preventDefault();
-    uploadArea.classList.remove('dragover');
-    for (const file of Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))) {
-      const previewUrl = await readAsDataURL(file);
-      items.push({ file, previewUrl, name: file.name });
-    }
-    renderPreview();
-  });
+  fileInput.addEventListener('change', () => addFiles([...fileInput.files]));
 
-  function readAsDataURL(file) {
-    return new Promise(resolve => {
-      const reader = new FileReader();
-      reader.onload = e => resolve(e.target.result);
-      reader.readAsDataURL(file);
-    });
+  function addFiles(newFiles) {
+    newFiles.forEach(f => { if (f.type.startsWith('image/')) files.push(f); });
+    renderPreviews();
   }
 
-  function renderPreview() {
+  function renderPreviews() {
     previewGrid.innerHTML = '';
-    items.forEach((item, i) => {
+    files.forEach((f, i) => {
+      const url = URL.createObjectURL(f);
       const div = document.createElement('div');
       div.className = 'preview-item';
       div.draggable = true;
+      div.dataset.index = i;
       div.innerHTML = `
-        <span class="num">${i + 1}</span>
-        <img src="${item.previewUrl}" title="${item.name}" />
-        <button class="remove" data-i="${i}">✕</button>
+        <span style="position:absolute;top:4px;left:6px;font-size:11px;background:rgba(0,0,0,0.6);padding:1px 5px;border-radius:4px;">${i+1}</span>
+        <img src="${url}" onclick="window.open('${url}')"/>
+        <button class="remove" onclick="removeFile(${i})">×</button>
       `;
-      div.querySelector('img').addEventListener('click', () => {
-        document.getElementById('lightboxImg').src = item.previewUrl;
-        document.getElementById('lightbox').style.display = 'flex';
-      });
-      div.querySelector('.remove').addEventListener('click', e => {
-        e.stopPropagation();
-        items.splice(i, 1);
-        renderPreview();
-      });
-      div.addEventListener('dragstart', () => { dragSrcIdx = i; div.classList.add('dragging'); });
-      div.addEventListener('dragend', () => div.classList.remove('dragging'));
-      div.addEventListener('dragover', e => { e.preventDefault(); div.classList.add('drag-over'); });
-      div.addEventListener('dragleave', () => div.classList.remove('drag-over'));
-      div.addEventListener('drop', e => {
-        e.preventDefault();
-        div.classList.remove('drag-over');
-        if (dragSrcIdx !== null && dragSrcIdx !== i) {
-          const moved = items.splice(dragSrcIdx, 1)[0];
-          items.splice(i, 0, moved);
-          renderPreview();
-        }
-      });
+      div.addEventListener('dragstart', dragStart);
+      div.addEventListener('dragover', dragOver);
+      div.addEventListener('drop', dragDrop);
       previewGrid.appendChild(div);
     });
-    previewHint.style.display = items.length > 0 ? 'block' : 'none';
   }
 
-  function setStatus(type, msg) {
-    statusEl.className = `status ${type}`;
-    statusEl.textContent = msg;
+  function removeFile(i) { files.splice(i, 1); renderPreviews(); }
+
+  let dragSrc = null;
+  function dragStart(e) { dragSrc = +this.dataset.index; }
+  function dragOver(e) { e.preventDefault(); }
+  function dragDrop(e) {
+    e.preventDefault();
+    const target = +this.dataset.index;
+    if (dragSrc === target) return;
+    const tmp = files[dragSrc];
+    files[dragSrc] = files[target];
+    files[target] = tmp;
+    renderPreviews();
   }
 
-  function setProgress(pct) {
-    progressBar.classList.add('show');
-    progressFill.style.width = pct + '%';
+  // ✅ 直接上傳到 Cloudinary（不經過 Vercel，無 413 問題）
+  async function uploadToCloudinary(file, index) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', UPLOAD_PRESET);
+    formData.append('folder', 'ig-posts');
+
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (!data.secure_url) throw new Error(`圖片 ${index+1} 上傳失敗`);
+    return data.secure_url;
   }
 
-  submitBtn.addEventListener('click', async () => {
+  uploadBtn.addEventListener('click', async () => {
+    if (files.length === 0) { showMsg('請先選擇圖片', 'error'); return; }
     const caption = document.getElementById('caption').value.trim();
-    if (items.length === 0) return setStatus('error', '❌ 請選擇至少一張圖片');
-    if (!caption) return setStatus('error', '❌ 請輸入文案');
-    if (items.length < 2) return setStatus('error', '❌ IG 輪播至少需要 2 張圖片');
+    if (!caption) { showMsg('請輸入文案', 'error'); return; }
 
-    submitBtn.disabled = true;
-    setProgress(10);
-    setStatus('loading', '⏳ 上傳中，請稍候...');
+    uploadBtn.disabled = true;
+    message.innerHTML = '';
 
     try {
-      const formData = new FormData();
-      formData.append('caption', caption);
+      // Step 1：逐張上傳到 Cloudinary
+      const urls = [];
+      for (let i = 0; i < files.length; i++) {
+        progress.textContent = `上傳圖片中... ${i+1} / ${files.length}`;
+        const url = await uploadToCloudinary(files[i], i);
+        urls.push(url);
+      }
 
-      // 照順序 append 圖片
-      items.forEach(item => formData.append('images', item.file));
-
-      setProgress(40);
-
+      // Step 2：把 URL + 文案傳給 Vercel API 存到 Notion
+      progress.textContent = '儲存到 Notion...';
       const res = await fetch('/api/upload', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrls: urls, caption })
       });
 
-      setProgress(90);
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || '儲存失敗');
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '上傳失敗');
-
-      setProgress(100);
-      setStatus('success', `✅ ${data.message}`);
-
-      // 清空
-      items = [];
-      renderPreview();
+      progress.textContent = '';
+      showMsg(`✅ 成功！已上傳 ${urls.length} 張圖片並儲存到 Notion`, 'success');
+      files = [];
+      renderPreviews();
       document.getElementById('caption').value = '';
 
     } catch (err) {
-      setStatus('error', '❌ ' + err.message);
+      progress.textContent = '';
+      showMsg('❌ ' + err.message, 'error');
     } finally {
-      submitBtn.disabled = false;
-      setTimeout(() => progressBar.classList.remove('show'), 2000);
+      uploadBtn.disabled = false;
     }
   });
+
+  function showMsg(text, type) {
+    message.innerHTML = `<div class="msg ${type}">${text}</div>`;
+  }
 </script>
 </body>
 </html>
