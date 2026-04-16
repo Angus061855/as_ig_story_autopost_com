@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { imageUrls, caption } = req.body;
+    const { imageUrls, caption, fileNames } = req.body;  // ← 新增 fileNames
 
     if (!imageUrls || imageUrls.length === 0) {
       return res.status(400).json({ error: '沒有圖片 URL' });
@@ -20,12 +20,12 @@ export default async function handler(req, res) {
         },
         圖片: {
           files: imageUrls.map((url, i) => ({
-            name: `image-${i + 1}.jpg`,
+            name: fileNames?.[i] || `image-${i + 1}.jpg`,  // ← 用原始檔名
             external: { url }
           }))
         },
         狀態: {
-          select: { name: '待發' }
+          status: { name: '待發' }   // ← select 改成 status
         }
       }
     });
