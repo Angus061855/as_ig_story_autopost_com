@@ -9,6 +9,16 @@
     body { background: #111; color: #fff; font-family: sans-serif; display: flex; justify-content: center; padding: 40px 16px; }
     .container { width: 100%; max-width: 600px; }
     h1 { font-size: 1.4rem; margin-bottom: 20px; }
+
+    /* Tab */
+    .tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+    .tab-btn { flex: 1; padding: 10px; border: none; border-radius: 10px; font-size: 0.95rem; cursor: pointer; background: #1e1e1e; color: #888; transition: all 0.2s; }
+    .tab-btn.active { background: #6c63ff; color: #fff; }
+
+    /* Panel */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
     .drop-zone { border: 2px dashed #555; border-radius: 12px; padding: 30px; text-align: center; color: #888; cursor: pointer; margin-bottom: 16px; }
     .drop-zone:hover { border-color: #aaa; }
     .preview-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
@@ -29,166 +39,199 @@
 </head>
 <body>
 <div class="container">
-  <h1>🗂 IG 發文上傳</h1>
+  <h1>🗂 媒體上傳工具</h1>
 
-  <div class="drop-zone" id="dropZone">點此選擇圖片，或拖曳圖片到這裡</div>
-  <input type="file" id="fileInput" multiple accept="image/*" style="display:none"/>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('post')">📸 IG 發文</button>
+    <button class="tab-btn" onclick="switchTab('story')">⚡ 限時動態</button>
+  </div>
 
-  <div class="preview-grid" id="previewGrid"></div>
-  <p class="hint">拖曳圖片可調整順序，點圖片可放大預覽</p>
+  <!-- IG 發文 Panel -->
+  <div class="panel active" id="panel-post">
+    <div class="drop-zone" id="dropZone-post">點此選擇圖片，或拖曳圖片到這裡</div>
+    <input type="file" id="fileInput-post" multiple accept="image/*" style="display:none"/>
+    <div class="preview-grid" id="previewGrid-post"></div>
+    <p class="hint">拖曳圖片可調整順序，點圖片可放大預覽</p>
+    <label>文案</label>
+    <textarea id="caption-post" placeholder="輸入 IG 文案..."></textarea>
+    <button class="btn" id="uploadBtn-post">🚀 上傳並儲存到 Notion</button>
+    <div class="progress" id="progress-post"></div>
+    <div id="message-post"></div>
+  </div>
 
-  <label>文案</label>
-  <textarea id="caption" placeholder="輸入 IG 文案..."></textarea>
-
-  <button class="btn" id="uploadBtn">🚀 上傳並儲存到 Notion</button>
-  <div class="progress" id="progress"></div>
-  <div id="message"></div>
+  <!-- 限時動態 Panel -->
+  <div class="panel" id="panel-story">
+    <div class="drop-zone" id="dropZone-story">點此選擇圖片，或拖曳圖片到這裡</div>
+    <input type="file" id="fileInput-story" multiple accept="image/*" style="display:none"/>
+    <div class="preview-grid" id="previewGrid-story"></div>
+    <p class="hint">拖曳圖片可調整順序，點圖片可放大預覽</p>
+    <button class="btn" id="uploadBtn-story">⚡ 上傳限時動態到 Notion</button>
+    <div class="progress" id="progress-story"></div>
+    <div id="message-story"></div>
+  </div>
 </div>
 
 <script>
   const CLOUD_NAME = 'dy6uwswgf';
   const UPLOAD_PRESET = 'ig_upload';
 
-  let files = [];
-  let dragSrc = null;
-
-  const dropZone = document.getElementById('dropZone');
-  const fileInput = document.getElementById('fileInput');
-  const previewGrid = document.getElementById('previewGrid');
-  const uploadBtn = document.getElementById('uploadBtn');
-  const progress = document.getElementById('progress');
-  const message = document.getElementById('message');
-
-  dropZone.addEventListener('click', () => fileInput.click());
-  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = '#fff'; });
-  dropZone.addEventListener('dragleave', () => dropZone.style.borderColor = '#555');
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.style.borderColor = '#555';
-    addFiles([...e.dataTransfer.files]);
-  });
-  fileInput.addEventListener('change', () => {
-    addFiles([...fileInput.files]);
-    fileInput.value = '';
-  });
-
-  function addFiles(newFiles) {
-    newFiles.forEach(f => { if (f.type.startsWith('image/')) files.push(f); });
-    renderPreviews();
+  // ── Tab 切換 ──
+  function switchTab(tab) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + tab).classList.add('active');
+    document.querySelectorAll('.tab-btn')[tab === 'post' ? 0 : 1].classList.add('active');
   }
 
-  function renderPreviews() {
-    previewGrid.innerHTML = '';
-    files.forEach((f, i) => {
-      const url = URL.createObjectURL(f);
-      const div = document.createElement('div');
-      div.className = 'preview-item';
-      div.draggable = true;
-      div.dataset.index = i;
+  // ── 通用上傳邏輯（post / story 共用） ──
+  function initPanel(type) {
+    let files = [];
+    let dragSrc = null;
 
-      const imgWrapper = document.createElement('div');
-      imgWrapper.style.position = 'relative';
-      imgWrapper.style.width = '100%';
+    const dropZone = document.getElementById('dropZone-' + type);
+    const fileInput = document.getElementById('fileInput-' + type);
+    const previewGrid = document.getElementById('previewGrid-' + type);
+    const uploadBtn = document.getElementById('uploadBtn-' + type);
+    const progress = document.getElementById('progress-' + type);
+    const message = document.getElementById('message-' + type);
 
-      imgWrapper.innerHTML = `
-        <span style="position:absolute;top:4px;left:6px;font-size:11px;background:rgba(0,0,0,0.6);padding:1px 5px;border-radius:4px;z-index:1;">${i + 1}</span>
-        <img src="${url}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="window.open('${url}')"/>
-        <button class="remove" onclick="removeFile(${i})">×</button>
-      `;
-
-      const nameEl = document.createElement('div');
-      nameEl.className = 'filename';
-      nameEl.textContent = f.name;
-
-      div.appendChild(imgWrapper);
-      div.appendChild(nameEl);
-
-      div.addEventListener('dragstart', dragStart);
-      div.addEventListener('dragover', dragOver);
-      div.addEventListener('drop', dragDrop);
-      previewGrid.appendChild(div);
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = '#fff'; });
+    dropZone.addEventListener('dragleave', () => dropZone.style.borderColor = '#555');
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#555';
+      addFiles([...e.dataTransfer.files]);
     });
-  }
-
-  function removeFile(i) {
-    files.splice(i, 1);
-    renderPreviews();
-  }
-
-  function dragStart(e) { dragSrc = +this.dataset.index; }
-  function dragOver(e) { e.preventDefault(); }
-  function dragDrop(e) {
-    e.preventDefault();
-    const target = +this.dataset.index;
-    if (dragSrc === null || dragSrc === target) return;
-    const tmp = files[dragSrc];
-    files[dragSrc] = files[target];
-    files[target] = tmp;
-    dragSrc = null;
-    renderPreviews();
-  }
-
-  async function uploadToCloudinary(file, index) {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', UPLOAD_PRESET);
-    formData.append('folder', 'ig-posts');
-
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-      method: 'POST',
-      body: formData
+    fileInput.addEventListener('change', () => {
+      addFiles([...fileInput.files]);
+      fileInput.value = '';
     });
-    const data = await res.json();
-    if (!data.secure_url) throw new Error(`圖片 ${index + 1} 上傳失敗`);
-    return { url: data.secure_url, name: file.name };
-  }
 
-  uploadBtn.addEventListener('click', async () => {
-    if (files.length === 0) { showMsg('請先選擇圖片', 'error'); return; }
-    const caption = document.getElementById('caption').value.trim();
-    if (!caption) { showMsg('請輸入文案', 'error'); return; }
+    function addFiles(newFiles) {
+      newFiles.forEach(f => { if (f.type.startsWith('image/')) files.push(f); });
+      renderPreviews();
+    }
 
-    uploadBtn.disabled = true;
-    message.innerHTML = '';
+    function renderPreviews() {
+      previewGrid.innerHTML = '';
+      files.forEach((f, i) => {
+        const url = URL.createObjectURL(f);
+        const div = document.createElement('div');
+        div.className = 'preview-item';
+        div.draggable = true;
+        div.dataset.index = i;
 
-    try {
-      const urls = [];
-      const fileNames = [];
+        const imgWrapper = document.createElement('div');
+        imgWrapper.style.position = 'relative';
+        imgWrapper.style.width = '100%';
+        imgWrapper.innerHTML = `
+          <span style="position:absolute;top:4px;left:6px;font-size:11px;background:rgba(0,0,0,0.6);padding:1px 5px;border-radius:4px;z-index:1;">${i + 1}</span>
+          <img src="${url}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="window.open('${url}')"/>
+          <button class="remove" onclick="removeFile_${type}(${i})">×</button>
+        `;
 
-      for (let i = 0; i < files.length; i++) {
-        progress.textContent = `上傳圖片中... ${i + 1} / ${files.length}`;
-        const result = await uploadToCloudinary(files[i], i);
-        urls.push(result.url);
-        fileNames.push(result.name);
+        const nameEl = document.createElement('div');
+        nameEl.className = 'filename';
+        nameEl.textContent = f.name;
+
+        div.appendChild(imgWrapper);
+        div.appendChild(nameEl);
+        div.addEventListener('dragstart', e => { dragSrc = +div.dataset.index; });
+        div.addEventListener('dragover', e => e.preventDefault());
+        div.addEventListener('drop', e => {
+          e.preventDefault();
+          const target = +div.dataset.index;
+          if (dragSrc === null || dragSrc === target) return;
+          const tmp = files[dragSrc];
+          files[dragSrc] = files[target];
+          files[target] = tmp;
+          dragSrc = null;
+          renderPreviews();
+        });
+        previewGrid.appendChild(div);
+      });
+    }
+
+    // 掛到 window 讓 inline onclick 可以呼叫
+    window['removeFile_' + type] = function(i) {
+      files.splice(i, 1);
+      renderPreviews();
+    };
+
+    async function uploadToCloudinary(file, index) {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', 'ig-posts');
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+        method: 'POST', body: formData
+      });
+      const data = await res.json();
+      if (!data.secure_url) throw new Error(`圖片 ${index + 1} 上傳失敗`);
+      return { url: data.secure_url, name: file.name };
+    }
+
+    uploadBtn.addEventListener('click', async () => {
+      if (files.length === 0) { showMsg('請先選擇圖片', 'error'); return; }
+
+      // 只有 post 需要文案
+      let caption = '';
+      if (type === 'post') {
+        caption = document.getElementById('caption-post').value.trim();
+        if (!caption) { showMsg('請輸入文案', 'error'); return; }
       }
 
-      progress.textContent = '儲存到 Notion...';
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrls: urls, caption, fileNames })
-      });
+      uploadBtn.disabled = true;
+      message.innerHTML = '';
 
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || '儲存失敗');
+      try {
+        const urls = [];
+        const fileNames = [];
+        for (let i = 0; i < files.length; i++) {
+          progress.textContent = `上傳圖片中... ${i + 1} / ${files.length}`;
+          const result = await uploadToCloudinary(files[i], i);
+          urls.push(result.url);
+          fileNames.push(result.name);
+        }
 
-      progress.textContent = '';
-      showMsg(`✅ 成功！已上傳 ${urls.length} 張圖片並儲存到 Notion`, 'success');
-      files = [];
-      renderPreviews();
-      document.getElementById('caption').value = '';
+        progress.textContent = '儲存到 Notion...';
+        const endpoint = type === 'post' ? '/api/upload' : '/api/upload-story';
+        const body = type === 'post'
+          ? { imageUrls: urls, caption, fileNames }
+          : { imageUrls: urls, fileNames };
 
-    } catch (err) {
-      progress.textContent = '';
-      showMsg('❌ ' + err.message, 'error');
-    } finally {
-      uploadBtn.disabled = false;
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || '儲存失敗');
+
+        progress.textContent = '';
+        showMsg(`✅ 成功！已上傳 ${urls.length} 張圖片並儲存到 Notion`, 'success');
+        files = [];
+        renderPreviews();
+        if (type === 'post') document.getElementById('caption-post').value = '';
+
+      } catch (err) {
+        progress.textContent = '';
+        showMsg('❌ ' + err.message, 'error');
+      } finally {
+        uploadBtn.disabled = false;
+      }
+    });
+
+    function showMsg(text, type) {
+      message.innerHTML = `<div class="msg ${type}">${text}</div>`;
     }
-  });
-
-  function showMsg(text, type) {
-    message.innerHTML = `<div class="msg ${type}">${text}</div>`;
   }
+
+  // 初始化兩個 panel
+  initPanel('post');
+  initPanel('story');
 </script>
 </body>
 </html>
