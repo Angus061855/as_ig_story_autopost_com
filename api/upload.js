@@ -6,26 +6,26 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { imageUrls, caption, fileNames } = req.body;  // ← 新增 fileNames
+    const { imageUrls, fileNames } = req.body;
 
     if (!imageUrls || imageUrls.length === 0) {
       return res.status(400).json({ error: '沒有圖片 URL' });
     }
 
     await notion.pages.create({
-      parent: { database_id: process.env.NOTION_DATABASE_ID },
+      parent: { database_id: '344c699d3b59801a9c01d7d074633983' },
       properties: {
-        文案: {
-          title: [{ text: { content: caption || '新貼文' } }]
+        主題: {
+          title: [{ text: { content: fileNames?.[0] || '限時動態' } }]
         },
         圖片: {
           files: imageUrls.map((url, i) => ({
-            name: fileNames?.[i] || `image-${i + 1}.jpg`,  // ← 用原始檔名
+            name: fileNames?.[i] || `story-${i + 1}.jpg`,
             external: { url }
           }))
         },
         狀態: {
-          status: { name: '待發' }   // ← select 改成 status
+          status: { name: '待發' }
         }
       }
     });
