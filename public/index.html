@@ -145,7 +145,11 @@
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrls: urls, caption })
+        body: JSON.stringify({ 
+          imageUrls: urls, 
+          caption,
+          fileNames: files.map(f => f.name)  // ← 傳原始檔名
+})
       });
 
       const result = await res.json();
