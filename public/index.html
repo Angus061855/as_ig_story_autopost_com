@@ -48,7 +48,7 @@
 
   <!-- IG 發文 Panel -->
   <div class="panel active" id="panel-post">
-    <div class="drop-zone" id="dropZone-post">點此選擇圖片，或拖曳圖片到這裡</div>
+    <label class="drop-zone" id="dropZone-post" for="fileInput-post">點此選擇圖片，或拖曳圖片到這裡</label>
     <input type="file" id="fileInput-post" multiple accept="image/*" style="display:none"/>
     <div class="preview-grid" id="previewGrid-post"></div>
     <p class="hint">拖曳圖片可調整順序，點圖片可放大預覽</p>
@@ -61,7 +61,7 @@
 
   <!-- 限時動態 Panel -->
   <div class="panel" id="panel-story">
-    <div class="drop-zone" id="dropZone-story">點此選擇圖片，或拖曳圖片到這裡</div>
+    <label class="drop-zone" id="dropZone-story" for="fileInput-story">點此選擇圖片，或拖曳圖片到這裡</label>
     <input type="file" id="fileInput-story" multiple accept="image/*" style="display:none"/>
     <div class="preview-grid" id="previewGrid-story"></div>
     <p class="hint">拖曳圖片可調整順序，點圖片可放大預覽</p>
@@ -95,7 +95,6 @@
     const progress = document.getElementById('progress-' + type);
     const message = document.getElementById('message-' + type);
 
-    dropZone.addEventListener('click', () => fileInput.click()); fileInput.addEventListener('click', (e) => e.stopPropagation());
     dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = '#fff'; });
     dropZone.addEventListener('dragleave', () => dropZone.style.borderColor = '#555');
     dropZone.addEventListener('drop', e => {
